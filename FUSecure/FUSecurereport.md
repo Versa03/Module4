@@ -360,6 +360,8 @@ Despite wanting to protect his practicum answers, Yuadi still wanted to share co
 
 Any user (including `yuadi`, `irwandi`, or others) should be able to **read** the contents of any file inside the `public` folder. For example, `cat /mnt/secure_fs/public/course_material.txt` should work for `yuadi` and `irwandi`.
 
+<img width="1470" alt="Image" src="https://github.com/user-attachments/assets/bcca2550-320e-4942-a40a-6f4fe4ef1856" />
+
 ### e. Restricted Private Folder Access
 
 This is the most important part of Yuadi's plan - ensuring practicum answers are truly protected from plagiarism.
