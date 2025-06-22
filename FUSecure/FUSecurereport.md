@@ -253,7 +253,7 @@ These are standard headers for:
 ```
 static const char *root_path = "/home/shared_files";
 ```
-This is the real directory you are mirroring with FUSE. It contains:
+This is the real directories that are mirroring with FUSE. It contains:
 - /public
 - /private_yuadi
 - /private_irwandi
