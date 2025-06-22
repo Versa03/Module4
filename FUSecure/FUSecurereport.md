@@ -68,7 +68,6 @@ static int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
 
     uid_t uid = fuse_get_context()->uid;
 
-    // Map / to root_path
     if (strcmp(path, "/") == 0) {
         res = lstat(root_path, stbuf);
         if (res == -1)
@@ -76,10 +75,8 @@ static int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
         return 0;
     }
 
-    // Build full real path
     snprintf(fullpath, sizeof(fullpath), "%s%s", root_path, path);
 
-    // Access control for private dirs
     if (strncmp(path, "/private_yuadi", 14) == 0 && !is_user(uid, "yuadi"))
         return -EACCES;
     if (strncmp(path, "/private_irwandi", 16) == 0 && !is_user(uid, "irwandi"))
@@ -104,15 +101,13 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     char fullpath[1024];
     uid_t uid = fuse_get_context()->uid;
 
-    // Map / to root_path
     if (strcmp(path, "/") == 0) {
         dp = opendir(root_path);
         if (dp == NULL)
             return -errno;
 
         while ((de = readdir(dp)) != NULL) {
-            // Always list all entries at root (including private dirs)
-            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+\            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
                 continue;
             filler(buf, de->d_name, NULL, 0, 0);
         }
@@ -120,13 +115,11 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         return 0;
     }
 
-    // Access control inside private dirs
     if (strncmp(path, "/private_yuadi", 14) == 0 && !is_user(uid, "yuadi"))
         return -EACCES;
     if (strncmp(path, "/private_irwandi", 16) == 0 && !is_user(uid, "irwandi"))
         return -EACCES;
 
-    // Build full real path
     snprintf(fullpath, sizeof(fullpath), "%s%s", root_path, path);
 
     dp = opendir(fullpath);
@@ -147,7 +140,6 @@ static int xmp_open(const char *path, struct fuse_file_info *fi) {
     char fullpath[1024];
     uid_t uid = fuse_get_context()->uid;
 
-    // Access control for private dirs
     if (strncmp(path, "/private_yuadi", 14) == 0 && !is_user(uid, "yuadi"))
         return -EACCES;
     if (strncmp(path, "/private_irwandi", 16) == 0 && !is_user(uid, "irwandi"))
@@ -185,7 +177,6 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     return res;
 }
 
-// Deny all write operations (read-only)
 static int deny_write() {
     return -EROFS;
 }
@@ -196,7 +187,6 @@ static struct fuse_operations xmp_oper = {
     .open       = xmp_open,
     .read       = xmp_read,
 
-    // Deny all write ops
     .write      = deny_write,
     .mkdir      = deny_write,
     .rmdir      = deny_write,
