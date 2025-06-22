@@ -1,4 +1,3 @@
-
 # FUSecure
 
 Yuadi, a skilled developer, is frustrated because his friend Irwandi repeatedly plagiarizes his operating system practicum answers despite warnings and reprimands from teaching assistants. To protect his work and integrity, Yuadi leverages his data security expertise to create FUSecure, a FUSE-based file system that enforces read-only access and restricts file visibility based on user permissions.
@@ -352,6 +351,7 @@ Yuadi was very annoyed with Irwandi's habit of modifying or even deleting answer
 sudo ./FUSecure -o allow_other /mnt/secure_fs
 ```
 
+<img width="1470" alt="Image" src="https://github.com/user-attachments/assets/6c8d2ce2-0099-475b-be76-8f628f572f0d" />
 
 
 ### d. Public Folder Access
