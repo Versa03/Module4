@@ -369,6 +369,8 @@ This is the most important part of Yuadi's plan - ensuring practicum answers are
 1. Files inside `private_yuadi` can **only be read by the user `yuadi`**. If `irwandi` tries to read practicum answer files in `private_yuadi`, it should fail (e.g., permission denied).
 2. Similarly, files inside `private_irwandi` can **only be read by the user `irwandi`**. If `yuadi` tries to read a file in `private_irwandi`, it should fail.
 
+<img width="1470" alt="Image" src="https://github.com/user-attachments/assets/e5ed2cdd-091d-4646-bbf3-477c54ef9adc" />
+
 ## Example Scenario
 
 After the system is complete, this is how FUSecure works in daily academic life:
