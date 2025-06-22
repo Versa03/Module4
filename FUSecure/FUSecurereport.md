@@ -387,3 +387,5 @@ After the system is complete, this is how FUSecure works in daily academic life:
   - `cat /mnt/secure_fs/private_irwandi/sisop_assignment.c` (Succeeds - his own practicum answer)
   - `cat /mnt/secure_fs/private_yuadi/practicum1_answer.c` (Fails with "Permission denied" - cannot read Yuadi's practicum answers)
   - `mkdir /mnt/secure_fs/new_folder` (Fails with "Permission denied" - read-only system)
+ 
+<img width="1470" alt="Image" src="https://github.com/user-attachments/assets/0e4bb4dc-5233-475a-b971-6a3322640da4" />
