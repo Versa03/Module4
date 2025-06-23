@@ -654,9 +654,10 @@ The system relies on configuration values defined in `lawak.conf`:
 
 ```ini
 # lawak.conf
+FILTER_WORDS=mu,ferrari,sisop,onic,prx
 SECRET_FILE_BASENAME=secret
-ACCESS_START=8
-ACCESS_END=18
+ACCESS_START=08:00
+ACCESS_END=23:00
 ```
 
 ### How it’s loaded
@@ -669,22 +670,13 @@ static void parse_config();
 
 ### Explanation
 
-- **`SECRET_FILE_BASENAME`**: Defines the basename for restricted files (e.g., `secret`).
-- **`ACCESS_START`**: Start of the allowed access window (e.g., 8 for 08:00).
-- **`ACCESS_END`**: End of the allowed access window (e.g., 18 for 18:00).
-- The `parse_config()` function (not shown) loads these values into `secret_basename`, `access_start`, and `access_end` variables.
+- **FILTER_WORDS**: A comma-separated list of words to filter (e.g., mu, ferrari, sisop, onic, prx).
+- **SECRET_FILE_BASENAME**: The basename for restricted files (e.g., secret).
+- **ACCESS_START**: The start time of the allowed access window in 24-hour format (e.g., 08:00 for 8:00 AM).
+- **ACCESS_END**: The end time of the allowed access window in 24-hour format (e.g., 23:00 for 11:00 PM).
+- The `parse_config()` function loads these values into variables like `secret_basename`, `access_start`, and `access_end` for use in the program.
 
----
 
-## Why This Works
-
-- **Time-based access control**: `is_outside_time()` ensures secret files are inaccessible outside the configured window.
-- **Secret file detection**: `is_secret()` identifies files by their basename, ignoring extensions.
-- **Consistent denial**: Functions like `getattr`, `access`, `open`, and `read` uniformly return `-ENOENT`, making secret files appear non-existent during restricted hours.
-- **Seamless integration**: Normal file operations proceed unaffected for non-secret files or during allowed hours.
-- **Logging**: Successful operations are logged for auditing.
-
-**Result**: Users cannot see, check, open, or read secret files (e.g., `secret.txt`) outside 08:00–18:00, enhancing security while maintaining normal filesystem behavior otherwise.
 
 ### c. Dynamic Content Filtering
 
