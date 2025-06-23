@@ -833,6 +833,87 @@ Where:
 
 > **Requirement:** You are **only required** to log successful `read` and `access` operations. Logging of other operations (e.g., failed writes) is optional.
 
+Log successful read and access operations with detailed info: timestamp, UID, action, and logical path.
+
+## The Logging Function 
+
+```c
+#define LOG_PATH "/var/log/lawakfs.log"
+
+static void log_action(const char *action, const char *path) {
+    FILE *lg = fopen(LOG_PATH, "a");
+    if (!lg) return;  // silently fail if cannot open log
+
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+
+    fprintf(lg,
+      "[%04d-%02d-%02d %02d:%02d:%02d] [%d] [%s] %s\n",
+      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+      tm->tm_hour, tm->tm_min, tm->tm_sec,
+      fuse_get_context()->uid,  // User ID of caller
+      action,
+      path
+    );
+
+    fclose(lg);
+}
+```
+
+- Opens the log file in append mode  
+- Gets current system time and formats it as YYYY-MM-DD HH:MM:SS  
+- Uses fuse_get_context()->uid to get the User ID of the caller  
+- Prints log line: `[YYYY-MM-DD HH:MM:SS] [UID] [ACTION] [PATH]`  
+- Closes the file  
+
+
+## Logging in Access Operation
+
+```c
+static int lawak_access(const char *path, int mask) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+
+    char fpath[PATH_MAX];
+    build_real_path(path, fpath);
+
+    if (access(fpath, mask) == -1)
+        return -errno;
+
+    log_action("ACCESS", path);  // ← LOG SUCCESSFUL ACCESS HERE
+
+    return 0;
+}
+```
+
+- Checks time-based restriction (for secret files)  
+- Checks real file accessibility  
+- If accessible, logs the access operation using log_action  
+- Returns success  
+
+
+## Logging in Read Operation
+
+```c
+static int lawak_read(const char *path, char *buf, size_t size,
+                      off_t offset, struct fuse_file_info *fi) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+
+    }
+
+    // ... read file and filter or encode contents ...
+
+    log_action("READ", path); // ← LOG SUCCESSFUL READ HERE
+
+    return nread;
+}
+```
+
+- Checks time restriction again  
+- Reads and filters file contents as required  
+- After successful read, logs the read operation with timestamp, UID, and path
+
 ### e. Configuration
 
 After using his filesystem for several weeks, Teja realized that his needs kept changing. Sometimes he wanted to add new words to the filter list, sometimes he wanted to change the secret file access hours, or even change the name of the secret file itself. "I don't want the hassle of recompiling every time I want to change settings!" he complained. Finally, he decided to create a flexible external configuration system.
