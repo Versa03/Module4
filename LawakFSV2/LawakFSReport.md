@@ -691,6 +691,127 @@ When a file is opened and read, its content must be **dynamically filtered or tr
 
 > **Note:** The list of "lawak words" for text file filtering will be defined externally, as specified in requirement **e. Configuration**.
 
+
+All the process happens in:
+
+```c
+static int lawak_read(const char *path, char *buf, size_t size,
+                      off_t offset, struct fuse_file_info *fi)
+```
+
+**Early check for time-based restriction**
+
+```c
+if (is_secret(path) && is_outside_time())
+    return -ENOENT;
+```
+
+Ensures that secret file restrictions (Task b) are still enforced during reads.
+
+**Open and read the real file**
+
+```c
+char fpath[PATH_MAX]; 
+build_real_path(path, fpath);
+FILE *fp = fopen(fpath, "rb");
+if (!fp) return -errno;
+
+if (fseeko(fp, offset, SEEK_SET) < 0) {
+    fclose(fp); 
+    return -errno;
+}
+```
+
+Resolves the real filename and opens it for reading in binary mode. Also seeks to the correct offset for partial reads.
+
+**Read raw content**
+
+```c
+unsigned char *raw = malloc(size);
+if (!raw) { fclose(fp); return -ENOMEM; }
+size_t nread = fread(raw, 1, size, fp);
+fclose(fp);
+```
+
+Reads up to size bytes from file into buffer raw. This works for both text and binary files.
+
+**Determine file type based on extension**
+
+```c
+const char *ext = strrchr(fpath, '.');
+```
+
+This checks the file extension:  
+- If the file ends with .txt, it is treated as text  
+- Otherwise, treated as binary  
+
+**Text file → Replace lawak words**
+
+```c
+if (ext && !strcasecmp(ext, ".txt")) {
+    char *tmp = malloc(nread * 2 + 1);
+    if (!tmp) { free(raw); return -ENOMEM; }
+
+    size_t out_len = replace_filters((char*)raw, nread, tmp, nread * 2);
+    size_t to_copy = out_len > size ? size : out_len;
+    memcpy(buf, tmp, to_copy);
+    nread = to_copy;
+    free(tmp);
+}
+```
+
+- Allocates a new buffer tmp  
+- Calls replace_filters() to search for lawak words and replace them  
+- Copies filtered result into buf  
+
+`replace_filters()` does this:
+
+```c
+for (int w = 0; w < filter_count; w++) {
+    int L = strlen(filter_words[w]);
+    if (strncasecmp(in + i, filter_words[w], L) == 0
+        && (i == 0 || !isalnum(in[i-1]))
+        && (i + L == len || !isalnum(in[i+L]))) {
+        memcpy(out + j, "lawak", 5);
+        ...
+    }
+}
+```
+
+Ensures case-insensitive matching, and matches only whole words  
+(e.g., LawAk, lawak, LaWaKIng → will match only if it’s a whole word)
+
+**inary file → Encode with Base64**
+
+```c
+else {
+    size_t b64_len;
+    char *b64 = b64_encode(raw, nread, &b64_len);
+    if (!b64) { free(raw); return -ENOMEM; }
+
+    size_t to_copy = b64_len > size ? size : b64_len;
+    memcpy(buf, b64, to_copy);
+    nread = to_copy;
+    free(b64);
+}
+```
+
+- Calls b64_encode() to convert binary data to Base64 format  
+- Ensures readable format for binary data (like images or PDFs)  
+- Returns encoded result  
+
+**Clean up and return**
+
+```c
+free(raw);
+log_action("READ", path);
+return nread;
+```
+
+Frees raw memory  
+Logs read operation to /var/log/lawakfs.log  
+Returns number of bytes read into FUSE buffer
+
 ### d. Access Logging
 
 As a paranoid individual, Teja felt the need to record every activity happening in his filesystem. "Who knows if someone tries to access my important files without permission," he muttered while setting up the logging system. He wanted every movement recorded in detail, complete with timestamps and the perpetrator's identity.
