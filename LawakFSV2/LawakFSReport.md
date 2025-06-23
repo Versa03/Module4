@@ -648,36 +648,6 @@ Prevents reading the content of secret files outside allowed hours, returning `-
    - Logs the action with `log_action("READ", path);` and returns the number of bytes read (`nread`).
 
 
-## Configuration Support
-
-The system relies on configuration values defined in `lawak.conf`:
-
-```ini
-# lawak.conf
-FILTER_WORDS=mu,ferrari,sisop,onic,prx
-SECRET_FILE_BASENAME=secret
-ACCESS_START=08:00
-ACCESS_END=23:00
-```
-
-### How it’s loaded
-
-The configuration is parsed by:
-
-```c
-static void parse_config();
-```
-
-### Explanation
-
-- **FILTER_WORDS**: A comma-separated list of words to filter (e.g., mu, ferrari, sisop, onic, prx).
-- **SECRET_FILE_BASENAME**: The basename for restricted files (e.g., secret).
-- **ACCESS_START**: The start time of the allowed access window in 24-hour format (e.g., 08:00 for 8:00 AM).
-- **ACCESS_END**: The end time of the allowed access window in 24-hour format (e.g., 23:00 for 11:00 PM).
-- The `parse_config()` function loads these values into variables like `secret_basename`, `access_start`, and `access_end` for use in the program.
-
-
-
 ### c. Dynamic Content Filtering
 
 Teja's frustration with "lawak" things reached its peak when he read online articles full of words that annoyed him. Not only that, but the images he viewed often didn't meet his expectations either. "All content entering my system must be filtered first!" he exclaimed while clenching his fist.
