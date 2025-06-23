@@ -358,12 +358,7 @@ static int lawak_readdir(const char *path, void *buf,
     return 0;
 }
 ```
-
-### What this chunk does
-
-**Hides file extensions when listing directory contents**
-
-### Step-by-step breakdown
+*Hides file extensions when listing directory contents*
 
 1.  cDIR \*dp = opendir(source\_path);Opens the real directory that contains the actual files
     
@@ -417,12 +412,7 @@ static void build_real_path(const char *path, char *fpath) {
     snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
 }
 ```
-
-### What this chunk does
-
-**Maps extension-less virtual paths back to real files with extensions**
-
-### Step-by-step breakdown
+*Maps extension-less virtual paths back to real files with extensions*
 
 1.  csnprintf(fpath, PATH\_MAX, "%s%s", source\_path, path);if (access(fpath, F\_OK) == 0) return;Checks if file exists without extension (for extensionless files)
     
