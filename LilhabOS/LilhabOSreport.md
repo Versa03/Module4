@@ -1,10 +1,6 @@
 # LilHabOS
 
-Lilhab is getting challenged by Trabowo (the same person that he met at 1st module) to create an simple kernel that have piping features using `echo`, `grep`, and `wc`. Lilhab feeling struggled and nervous as he think his work will not finished when met it's deadline. So, he decided to ask Grok about the challenge and the AI decided to mock him.
-
-![image](image.png)
-
-Feeling sad, Lilhab determined to finish his work on time. He then stumbled on this [module](https://github.com/arsitektur-jaringan-komputer/Modul-Sisop/tree/master/Modul4) and feeling very grateful. Help him to finish the challenge!
+Lilhab is getting challenged by Trabowo (the same person that he met at 1st module) to create an simple kernel that have piping features using `echo`, `grep`, and `wc`. Lilhab feeling struggled and nervous as he think his work will not finished when met it's deadline. 
 
 ### Directory Structure
 
@@ -29,6 +25,8 @@ task-3/
 - [`src/`](./src/) : contains source code
 - [`bochsrc.txt`](./bochsrc.txt) : Bochs configuration
 - [`makefile`](./makefile) : make configuration file
+
+  
 
 ### Kernel
 
