@@ -1,7 +1,5 @@
 # LawakFS++ - A Cursed Filesystem with Censorship and Strict Access Policies
 
-Teja, a frustrated football fan, is fed up with his favorite team's constant losses, often calling them a "joke team" ("tim lawak"). This disappointment inspired the idea of a special filesystem—LawakFS++—designed to censor "lawak" (ridiculous) content. LawakFS++ is a read-only, cursed filesystem that enforces strict access policies, dynamic content filtering, and time-based access control. It also includes features like logging and configuration management to regulate file access behavior.
-
 ```c
 #define FUSE_USE_VERSION 31
 #include <fuse3/fuse.h>
@@ -334,8 +332,7 @@ All files displayed within the FUSE mountpoint must have their **extensions hidd
 - **Example:** If the original file is `document.pdf`, an `ls` command inside the FUSE directory should only show `document`.
 - **Behavior:** Despite the hidden extension, accessing a file (e.g., `cat /mnt/your_mountpoint/document`) must correctly map to its original path and name (e.g., `source_dir/document.pdf`).
 
-Directory Listing - Hiding Extensions
-
+## Directory Listing - Hiding Extensions
 
 ```c
 static int lawak_readdir(const char *path, void *buf,
@@ -358,29 +355,53 @@ static int lawak_readdir(const char *path, void *buf,
     return 0;
 }
 ```
-Hides file extensions when listing directory contents
+**Hides file extensions when listing directory contents**
 
-1.  cDIR \*dp = opendir(source\_path);Opens the real directory that contains the actual files
-    
-2.  cwhile ((de = readdir(dp))) {Loops through all files and folders in the directory
-    
-3.  cif (!strcmp(de->d\_name, ".") || !strcmp(de->d\_name, "..")) continue;Ignores current directory (.) and parent directory (..)
-    
-4.  cchar name\[PATH\_MAX\];strcpy(name, de->d\_name);Creates a copy since we need to modify it
-    
-5.  cchar \*dot = strrchr(name, '.'); // Find last dotif (dot) \*dot = 0; // Cut string at dot**This is where extensions get hidden!**
-    
-    *   document.pdf → document
-        
-    *   image.jpg → image
-        
-    *   script.sh → script
-        
-6.  cfiller(buf, name, &st, 0, 0);Shows the extension-less name to the user
+1. **Open the source directory**
+   ```c
+   DIR *dp = opendir(source_path);
+   ```
+   Opens the real directory that contains the actual files.
 
+2. **Read each directory entry**
+   ```c
+   while ((de = readdir(dp))) {
+   ```
+   Loops through all files and folders in the directory.
 
-File Access - Mapping Back to Real Files
-    
+3. **Skip special entries**
+   ```c
+   if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+   ```
+   Ignores current directory (`.`) and parent directory (`..`).
+
+4. **Copy filename to modifiable buffer**
+   ```c
+   char name[PATH_MAX];
+   strcpy(name, de->d_name);
+   ```
+   Creates a copy since we need to modify it.
+
+5. **🔑 KEY STEP: Remove extension**
+   ```c
+   char *dot = strrchr(name, '.');  // Find last dot
+   if (dot) *dot = 0;               // Cut string at dot
+   ```
+   **This is where extensions get hidden!**
+   - `document.pdf` → `document`
+   - `image.jpg` → `image`
+   - `script.sh` → `script`
+
+6. **Return the modified filename**
+   ```c
+   filler(buf, name, &st, 0, 0);
+   ```
+   Shows the extension-less name to the user.
+
+---
+
+## File Access - Mapping Back to Real Files
+
 ```c
 static void build_real_path(const char *path, char *fpath) {
     snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
@@ -415,19 +436,50 @@ static void build_real_path(const char *path, char *fpath) {
     snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
 }
 ```
-Maps extension-less virtual paths back to real files with extensions
+**Maps extension-less virtual paths back to real files with extensions**
 
-1.  csnprintf(fpath, PATH\_MAX, "%s%s", source\_path, path);if (access(fpath, F\_OK) == 0) return;Checks if file exists without extension (for extensionless files)
-    
-2.  cchar tmp\[PATH\_MAX\];snprintf(tmp, PATH\_MAX, "%s%s.txt", source\_path, path);if (access(tmp, F\_OK) == 0) { strncpy(fpath, tmp, PATH\_MAX); return;}Common case: assumes text files if no extension found
-    
-3.  cconst char \*base = path + 1; // Remove leading /while ((de = readdir(d))) { char \*dot = strrchr(de->d\_name, '.'); if (!dot) continue; size\_t namelen = dot - de->d\_name; // Length before extension if (namelen == strlen(base) && strncmp(de->d\_name, base, namelen) == 0) { // Found matching file! snprintf(fpath, PATH\_MAX, "%s/%s", source\_path, de->d\_name); return; }}**This is the magic mapping!**
-    
-    *   User requests: /document
-        
-    *   Function finds: document.pdf
-        
-    *   Maps to: /source\_dir/document.pdf
+1. **Try direct path first**
+   ```c
+   snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
+   if (access(fpath, F_OK) == 0) return;
+   ```
+   Checks if file exists without extension (for extensionless files).
+
+2. **Try adding .txt extension**
+   ```c
+   char tmp[PATH_MAX];
+   snprintf(tmp, PATH_MAX, "%s%s.txt", source_path, path);
+   if (access(tmp, F_OK) == 0) {
+       strncpy(fpath, tmp, PATH_MAX);
+       return;
+   }
+   ```
+   Common case: assumes text files if no extension found.
+
+3. **KEY STEP: Search for matching basename**
+   ```c
+   const char *base = path + 1;  // Remove leading /
+   while ((de = readdir(d))) {
+       char *dot = strrchr(de->d_name, '.');
+       if (!dot) continue;
+       size_t namelen = dot - de->d_name;  // Length before extension
+       if (namelen == strlen(base)
+        && strncmp(de->d_name, base, namelen) == 0) {
+           // Found matching file!
+           snprintf(fpath, PATH_MAX, "%s/%s", source_path, de->d_name);
+           return;
+       }
+   }
+   ```
+   **This is the magic mappin!**
+   - User requests: `/document`
+   - Function finds: `document.pdf`
+   - Maps to: `/source_dir/document.pdf`
+
+
+
+
+
 
 
 ### b. Time-Based Access for Secret Files
@@ -438,6 +490,201 @@ Files whose base name is **`secret`** (e.g., `secret.txt`, `secret.zip`) can onl
 
 - **Restriction:** Outside this specified time range, any attempt to open, read, or even list the `secret` file must result in an `ENOENT` (No such file or directory) error.
 - **Hint:** You will need to implement this time-based access control within your `access()` and/or `getattr()` FUSE operations.
+
+This solution implements a FUSE filesystem that restricts access to files with a specific basename ("secret") outside a configured time window (e.g., 08:00–18:00). 
+
+## `is_outside_time()`
+
+```c
+static int is_outside_time() {
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    int h = tm->tm_hour;
+    return (h < access_start || h >= access_end);
+}
+```
+
+Returns `1` (true) if the current time is outside the access window (e.g., 08:00–18:00).
+
+1. **Get system time**
+   - `time_t t = time(NULL);` retrieves the current time.
+2. **Convert to local time**
+   - `struct tm *tm = localtime(&t);` converts to a `struct tm` for hour extraction.
+3. **Extract current hour**
+   - `int h = tm->tm_hour;` gets the hour (0–23).
+4. **Check time range**
+   - Returns `1` if the hour is outside the range defined by `access_start` and `access_end`.
+
+
+## `is_secret()`
+
+```c
+static int is_secret(const char *path) {
+    const char *base = path + 1;
+    char tmp[256];
+    snprintf(tmp, sizeof tmp, "%s", base);
+    char *dot = strrchr(tmp, '.');
+    if (dot) *dot = 0;
+    return strcmp(tmp, secret_basename) == 0;
+}
+```
+
+Returns `1` if the file’s basename (before extension) matches `"secret"` (e.g., `secret.txt`, `secret.jpeg`).
+
+1. **Skip leading slash**
+   - `const char *base = path + 1;` removes the leading `/` from the FUSE path.
+2. **Copy basename**
+   - `snprintf(tmp, sizeof tmp, "%s", base);` copies the path to a modifiable buffer.
+3. **Remove extension**
+   - `char *dot = strrchr(tmp, '.'); if (dot) *dot = 0;` strips the extension (e.g., `secret.txt` → `secret`).
+4. **Compare with secret basename**
+   - `strcmp(tmp, secret_basename) == 0` checks if the basename matches the configured `secret_basename`.
+
+
+
+## `lawak_getattr()` — Deny stat on secret outside working hours
+
+```c
+static int lawak_getattr(const char *path, struct stat *stbuf,
+                         struct fuse_file_info *fi) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+    char fpath[PATH_MAX];
+    build_real_path(path, fpath);
+    int res = lstat(fpath, stbuf);
+    return res == -1 ? -errno : 0;
+}
+```
+
+Denies `stat` calls on "secret" files outside the allowed time, returning `-ENOENT` (file not found).
+
+1. **Check secret and time**
+   - If `is_secret(path)` and `is_outside_time()` are true, return `-ENOENT`.
+2. **Build real path**
+   - `build_real_path(path, fpath);` maps the virtual path to the real file path.
+3. **Perform stat**
+   - `lstat(fpath, stbuf);` retrieves file metadata.
+4. **Return result**
+   - Returns `0` on success or `-errno` on failure.
+
+---
+
+## `lawak_access()` — Deny even checking existence
+
+```c
+static int lawak_access(const char *path, int mask) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+    char fpath[PATH_MAX];
+    build_real_path(path, fpath);
+    if (access(fpath, mask) == -1)
+        return -errno;
+    log_action("ACCESS", path);
+    return 0;
+}
+```
+
+Prevents checking the existence of secret files outside allowed hours, making commands like `ls secret` or `test -f secret` fail.
+
+1. **Check secret and time**
+   - If `is_secret(path)` and `is_outside_time()` are true, return `-ENOENT`.
+2. **Build real path**
+   - `build_real_path(path, fpath);` maps the virtual path to the real file path.
+3. **Check access**
+   - `access(fpath, mask);` verifies permissions.
+4. **Log and return**
+   - Logs the action with `log_action("ACCESS", path);` and returns `0` on success or `-errno` on failure.
+
+
+## `lawak_open()` — Deny opening the file
+
+```c
+static int lawak_open(const char *path, struct fuse_file_info *fi) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+    char fpath[PATH_MAX];
+    build_real_path(path, fpath);
+    int fd = open(fpath, O_RDONLY);
+    if (fd < 0) return -errno;
+    close(fd);
+    return 0;
+}
+```
+
+Prevents opening secret files outside allowed hours, returning `-ENOENT`.
+
+1. **Check secret and time**
+   - If `is_secret(path)` and `is_outside_time()` are true, return `-ENOENT`.
+2. **Build real path**
+   - `build_real_path(path, fpath);` maps the virtual path to the real file path.
+3. **Open file**
+   - `int fd = open(fpath, O_RDONLY);` attempts to open the file in read-only mode.
+4. **Return result**
+   - Closes the file descriptor and returns `0` on success or `-errno` on failure.
+
+
+
+## `lawak_read()` — Deny reading content
+
+```c
+static int lawak_read(const char *path, char *buf, size_t size,
+                      off_t offset, struct fuse_file_info *fi) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+    ...
+    log_action("READ", path);
+    return nread;
+}
+```
+
+Prevents reading the content of secret files outside allowed hours, returning `-ENOENT`.
+
+
+1. **Check secret and time**
+   - If `is_secret(path)` and `is_outside_time()` are true, return `-ENOENT`.
+2. **Read content**
+   - (Ellipsed code presumably handles reading the file content into `buf`.)
+3. **Log and return**
+   - Logs the action with `log_action("READ", path);` and returns the number of bytes read (`nread`).
+
+
+## Configuration Support
+
+The system relies on configuration values defined in `lawak.conf`:
+
+```ini
+# lawak.conf
+SECRET_FILE_BASENAME=secret
+ACCESS_START=8
+ACCESS_END=18
+```
+
+### How it’s loaded
+
+The configuration is parsed by:
+
+```c
+static void parse_config();
+```
+
+### Explanation
+
+- **`SECRET_FILE_BASENAME`**: Defines the basename for restricted files (e.g., `secret`).
+- **`ACCESS_START`**: Start of the allowed access window (e.g., 8 for 08:00).
+- **`ACCESS_END`**: End of the allowed access window (e.g., 18 for 18:00).
+- The `parse_config()` function (not shown) loads these values into `secret_basename`, `access_start`, and `access_end` variables.
+
+---
+
+## Why This Works
+
+- **Time-based access control**: `is_outside_time()` ensures secret files are inaccessible outside the configured window.
+- **Secret file detection**: `is_secret()` identifies files by their basename, ignoring extensions.
+- **Consistent denial**: Functions like `getattr`, `access`, `open`, and `read` uniformly return `-ENOENT`, making secret files appear non-existent during restricted hours.
+- **Seamless integration**: Normal file operations proceed unaffected for non-secret files or during allowed hours.
+- **Logging**: Successful operations are logged for auditing.
+
+**Result**: Users cannot see, check, open, or read secret files (e.g., `secret.txt`) outside 08:00–18:00, enhancing security while maintaining normal filesystem behavior otherwise.
 
 ### c. Dynamic Content Filtering
 
