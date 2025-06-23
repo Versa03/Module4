@@ -334,8 +334,8 @@ All files displayed within the FUSE mountpoint must have their **extensions hidd
 - **Example:** If the original file is `document.pdf`, an `ls` command inside the FUSE directory should only show `document`.
 - **Behavior:** Despite the hidden extension, accessing a file (e.g., `cat /mnt/your_mountpoint/document`) must correctly map to its original path and name (e.g., `source_dir/document.pdf`).
 
-Chunk 1: Directory Listing - Hiding Extensions
-----------------------------------------------
+Directory Listing - Hiding Extensions
+
 
 ```c
 static int lawak_readdir(const char *path, void *buf,
@@ -358,7 +358,7 @@ static int lawak_readdir(const char *path, void *buf,
     return 0;
 }
 ```
-*Hides file extensions when listing directory contents*
+Hides file extensions when listing directory contents
 
 1.  cDIR \*dp = opendir(source\_path);Opens the real directory that contains the actual files
     
@@ -377,6 +377,9 @@ static int lawak_readdir(const char *path, void *buf,
     *   script.sh → script
         
 6.  cfiller(buf, name, &st, 0, 0);Shows the extension-less name to the user
+
+
+File Access - Mapping Back to Real Files
     
 ```c
 static void build_real_path(const char *path, char *fpath) {
@@ -412,7 +415,7 @@ static void build_real_path(const char *path, char *fpath) {
     snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
 }
 ```
-*Maps extension-less virtual paths back to real files with extensions*
+Maps extension-less virtual paths back to real files with extensions
 
 1.  csnprintf(fpath, PATH\_MAX, "%s%s", source\_path, path);if (access(fpath, F\_OK) == 0) return;Checks if file exists without extension (for extensionless files)
     
