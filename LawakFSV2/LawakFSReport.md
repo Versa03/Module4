@@ -269,6 +269,62 @@ int main(int argc, char *argv[]) {
 }
 ```
 
+```c
+static char **filter_words = NULL;
+static int   filter_count  = 0;
+static char  secret_basename[256];
+static int   access_start, access_end;
+static char  source_path[PATH_MAX];
+#define LOG_PATH "/var/log/lawakfs.log"
+```
+
+What this does: Sets up the filesystem's configuration and state
+
+- `filter_words` + `filter_count`: Together they form a dynamic array system. These store words that get replaced with "lawak" in text files.
+```
+filter_words → ["bad", "evil", "hate"] (array of 3 strings)
+filter_count = 3
+```
+
+- `secret_basename`: A filename pattern (like "secret" or "confidential")
+Files matching this pattern get time-based restrictions.
+
+- `access_start + access_end`: Hour range (0-23) when secret files are accessible
+Example: start=9, end=17 means 9 AM to 5 PM only.
+
+- `source_path`: The real directory path that this virtual filesystem represents
+Example: /home/user/docs - all virtual operations map to files here.
+
+- `LOG_PATH`: Where to write the activity log file.
+
+Purpose: This establishes the "configuration" of the filesystem - what words to filter, which files to restrict, when to allow access, and where everything is located.
+
+
+```c
+static void log_action(const char *action, const char *path) {
+    FILE *lg = fopen(LOG_PATH, "a");
+    if (!lg) return;
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    fprintf(lg,
+      "[%04d-%02d-%02d %02d:%02d:%02d] [%d] [%s] %s\n",
+      tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+      tm->tm_hour, tm->tm_min, tm->tm_sec,
+      fuse_get_context()->uid, action, path);
+    fclose(lg);
+}
+```
+Records filesystem activity to a log file. Step-by-step process:
+
+1. Open log file in append mode (adds to end without overwriting)
+2. Get current time and convert to human-readable format
+3. Write formatted log entry with:
+
+- Timestamp: [2025-06-23 14:30:45]
+- User ID: [1000] (who performed the action)
+- Action type: [READ] or [ACCESS]
+- File path: `/documents/report.txt`
+
 ### a. Hidden File Extensions
 
 After using regular filesystems for days, Teja realized that file extensions always made it too easy for people to identify file types. "This is too predictable!" he thought. He wanted to create a more mysterious system where people would have to actually open files to discover their contents.
@@ -277,6 +333,109 @@ All files displayed within the FUSE mountpoint must have their **extensions hidd
 
 - **Example:** If the original file is `document.pdf`, an `ls` command inside the FUSE directory should only show `document`.
 - **Behavior:** Despite the hidden extension, accessing a file (e.g., `cat /mnt/your_mountpoint/document`) must correctly map to its original path and name (e.g., `source_dir/document.pdf`).
+
+Chunk 1: Directory Listing - Hiding Extensions
+----------------------------------------------
+
+```c
+static int lawak_readdir(const char *path, void *buf,
+    fuse_fill_dir_t filler, off_t offset,
+    struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
+    DIR *dp = opendir(source_path);
+    if (!dp) return -errno;
+    struct dirent *de;
+    while ((de = readdir(dp))) {
+        if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+        char name[PATH_MAX];
+        strcpy(name, de->d_name);
+        char *dot = strrchr(name, '.');
+        if (dot) *dot = 0;  // ← THIS LINE HIDES EXTENSIONS
+        struct stat st; memset(&st, 0, sizeof st);
+        st.st_mode = de->d_type << 12;
+        filler(buf, name, &st, 0, 0);
+    }
+    closedir(dp);
+    return 0;
+}
+```
+
+### What this chunk does
+
+**Hides file extensions when listing directory contents**
+
+### Step-by-step breakdown
+
+1.  cDIR \*dp = opendir(source\_path);Opens the real directory that contains the actual files
+    
+2.  cwhile ((de = readdir(dp))) {Loops through all files and folders in the directory
+    
+3.  cif (!strcmp(de->d\_name, ".") || !strcmp(de->d\_name, "..")) continue;Ignores current directory (.) and parent directory (..)
+    
+4.  cchar name\[PATH\_MAX\];strcpy(name, de->d\_name);Creates a copy since we need to modify it
+    
+5.  cchar \*dot = strrchr(name, '.'); // Find last dotif (dot) \*dot = 0; // Cut string at dot**This is where extensions get hidden!**
+    
+    *   document.pdf → document
+        
+    *   image.jpg → image
+        
+    *   script.sh → script
+        
+6.  cfiller(buf, name, &st, 0, 0);Shows the extension-less name to the user
+    
+```c
+static void build_real_path(const char *path, char *fpath) {
+    snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
+    if (access(fpath, F_OK) == 0) return;
+
+    char tmp[PATH_MAX];
+    snprintf(tmp, PATH_MAX, "%s%s.txt", source_path, path);
+    if (access(tmp, F_OK) == 0) {
+        strncpy(fpath, tmp, PATH_MAX);
+        return;
+    }
+
+    DIR *d = opendir(source_path);
+    if (d) {
+        struct dirent *de;
+        const char *base = path + 1;
+        while ((de = readdir(d))) {
+            char *dot = strrchr(de->d_name, '.');
+            if (!dot) continue;
+            size_t namelen = dot - de->d_name;
+            if (namelen == strlen(base)
+             && strncmp(de->d_name, base, namelen) == 0) {
+                snprintf(fpath, PATH_MAX, "%s/%s",
+                         source_path, de->d_name);
+                closedir(d);
+                return;
+            }
+        }
+        closedir(d);
+    }
+
+    snprintf(fpath, PATH_MAX, "%s%s", source_path, path);
+}
+```
+
+### What this chunk does
+
+**Maps extension-less virtual paths back to real files with extensions**
+
+### Step-by-step breakdown
+
+1.  csnprintf(fpath, PATH\_MAX, "%s%s", source\_path, path);if (access(fpath, F\_OK) == 0) return;Checks if file exists without extension (for extensionless files)
+    
+2.  cchar tmp\[PATH\_MAX\];snprintf(tmp, PATH\_MAX, "%s%s.txt", source\_path, path);if (access(tmp, F\_OK) == 0) { strncpy(fpath, tmp, PATH\_MAX); return;}Common case: assumes text files if no extension found
+    
+3.  cconst char \*base = path + 1; // Remove leading /while ((de = readdir(d))) { char \*dot = strrchr(de->d\_name, '.'); if (!dot) continue; size\_t namelen = dot - de->d\_name; // Length before extension if (namelen == strlen(base) && strncmp(de->d\_name, base, namelen) == 0) { // Found matching file! snprintf(fpath, PATH\_MAX, "%s/%s", source\_path, de->d\_name); return; }}**This is the magic mapping!**
+    
+    *   User requests: /document
+        
+    *   Function finds: document.pdf
+        
+    *   Maps to: /source\_dir/document.pdf
+
 
 ### b. Time-Based Access for Secret Files
 
