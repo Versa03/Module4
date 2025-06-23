@@ -906,6 +906,93 @@ ACCESS_END=18:00
 
 Your FUSE should read and parse this configuration file upon initialization.
 
+## Configuration File Format
+
+Example file `lawak.conf`:
+
+```ini
+FILTER_WORDS=ducati,ferrari,mu,chelsea,prx,onic,sisop
+SECRET_FILE_BASENAME=secret
+ACCESS_START=08:00
+ACCESS_END=18:00
+```
+
+- **FILTER_WORDS**: comma-separated list of words to filter out from text files
+- **SECRET_FILE_BASENAME**: the base name identifying secret files (e.g., "secret")
+- **ACCESS_START** and **ACCESS_END**: the allowed access hours in HH:MM format
+
+
+## The Configuration Parsing Function
+
+```c
+static void parse_config() {
+    FILE *cf = fopen("lawak.conf", "r");
+    if (!cf) {
+        fprintf(stderr, "[DEBUG] Gagal membuka lawak.conf\n");
+        return;
+    }
+    char line[512];
+    while (fgets(line, sizeof line, cf)) {
+        if (line[0] == '#' || !strchr(line, '=')) continue;
+
+        char *k = strtok(line, "=\n");
+        char *v = strtok(NULL, "\n");
+
+        if (!strcmp(k, "FILTER_WORDS")) {
+            char *p = strtok(v, ",");
+            while (p) {
+                filter_words = realloc(filter_words,
+                    sizeof *filter_words * (filter_count + 1));
+                filter_words[filter_count++] = strdup(p);
+                p = strtok(NULL, ",");
+            }
+        } else if (!strcmp(k, "SECRET_FILE_BASENAME")) {
+            strncpy(secret_basename, v, sizeof secret_basename - 1);
+        } else if (!strcmp(k, "ACCESS_START")) {
+            sscanf(v, "%d:%d", &access_start, &(int){0});  // We will improve this below
+        } else if (!strcmp(k, "ACCESS_END")) {
+            sscanf(v, "%d:%d", &access_end, &(int){0});
+        }
+    }
+    fclose(cf);
+
+    fprintf(stderr,
+      "[DEBUG] lawak.conf loaded (%d filters) secret=\"%s\" hours=%02d-%02d\n",
+      filter_count, secret_basename, access_start, access_end);
+}
+```
+
+- Opens lawak.conf for reading  
+- Reads file line by line  
+- Skips comments and malformed lines (no =)  
+- Splits each line at =  
+- Parses keys and values:  
+  - **FILTER_WORDS**  
+    - Splits the comma-separated list into individual words  
+    - Stores them dynamically in the global filter_words array  
+  - **SECRET_FILE_BASENAME**  
+    - Stores the secret base filename string (e.g., "secret")  
+  - **ACCESS_START** and **ACCESS_END**  
+    - Parses the start and end access hours (currently parsing only hour, minute ignored)  
+
+
+
+## Using Config Values
+
+The global variables configured are:
+
+```c
+static char **filter_words = NULL;
+static int   filter_count  = 0;
+static char  secret_basename[256];
+static int   access_start, access_end;
+```
+
+These variables are used by other parts of the filesystem:  
+- `filter_words` & `filter_count` used in filtering text (`replace_filters`)  
+- `secret_basename` used in secret file identification (`is_secret`)  
+- `access_start` and `access_end` used in time-based access checks (`is_outside_time`)
+
 ### Summary of Expected Behaviors
 
 To ensure clarity, here's a consolidated table of the expected behavior for specific scenarios:
