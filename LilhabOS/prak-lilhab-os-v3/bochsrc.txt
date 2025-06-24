@@ -1,0 +1,23 @@
+# Konfigurasi Bochs yang lebih sederhana dan kompatibel
+
+# Memory
+megs: 32
+
+# Path ke ROM dan VGA BIOS
+romimage: file=/usr/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest
+
+# Konfigurasi Floppy
+floppya: 1_44=bin/floppy.img, status=inserted
+
+# Opsi Boot
+boot: floppy
+
+# Logging (Log akan ditampilkan di terminal)
+log: -
+
+# Display
+display_library: x
+
+# Mouse (dinonaktifkan)
+mouse: enabled=0
