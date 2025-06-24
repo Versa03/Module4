@@ -853,7 +853,55 @@ static void log_action(const char *action, const char *path) {
 - Prints log line: `[YYYY-MM-DD HH:MM:SS] [UID] [ACTION] [PATH]`  
 - Closes the file
 
-End Result:
+
+## Logging in Access Operation
+
+```c
+static int lawak_access(const char *path, int mask) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+
+    char fpath[PATH_MAX];
+    build_real_path(path, fpath);
+
+    if (access(fpath, mask) == -1)
+        return -errno;
+
+    log_action("ACCESS", path);  // ← LOG SUCCESSFUL ACCESS HERE
+
+    return 0;
+}
+```
+
+- Checks time-based restriction (for secret files)  
+- Checks real file accessibility  
+- If accessible, logs the access operation using log_action  
+- Returns success  
+
+
+## Logging in Read Operation
+
+```c
+static int lawak_read(const char *path, char *buf, size_t size,
+                      off_t offset, struct fuse_file_info *fi) {
+    if (is_secret(path) && is_outside_time())
+        return -ENOENT;
+
+    }
+
+    // ... read file and filter or encode contents ...
+
+    log_action("READ", path); // ← LOG SUCCESSFUL READ HERE
+
+    return nread;
+}
+```
+
+- Checks time restriction again  
+- Reads and filters file contents as required  
+- After successful read, logs the read operation with timestamp, UID, and path
+
+  End Result:
 ```bash
 Hudson-ubuntu@Naratama-hudson2:/var/log$ cat lawakfs.log
 [2025-06-18 20:26:39] [1000] [ACCESS] /
@@ -907,54 +955,6 @@ Hudson-ubuntu@Naratama-hudson2:/var/log$ cat lawakfs.log
 [2025-06-23 23:30:29] [1000] [ACCESS] /
 
 ```
-
-
-## Logging in Access Operation
-
-```c
-static int lawak_access(const char *path, int mask) {
-    if (is_secret(path) && is_outside_time())
-        return -ENOENT;
-
-    char fpath[PATH_MAX];
-    build_real_path(path, fpath);
-
-    if (access(fpath, mask) == -1)
-        return -errno;
-
-    log_action("ACCESS", path);  // ← LOG SUCCESSFUL ACCESS HERE
-
-    return 0;
-}
-```
-
-- Checks time-based restriction (for secret files)  
-- Checks real file accessibility  
-- If accessible, logs the access operation using log_action  
-- Returns success  
-
-
-## Logging in Read Operation
-
-```c
-static int lawak_read(const char *path, char *buf, size_t size,
-                      off_t offset, struct fuse_file_info *fi) {
-    if (is_secret(path) && is_outside_time())
-        return -ENOENT;
-
-    }
-
-    // ... read file and filter or encode contents ...
-
-    log_action("READ", path); // ← LOG SUCCESSFUL READ HERE
-
-    return nread;
-}
-```
-
-- Checks time restriction again  
-- Reads and filters file contents as required  
-- After successful read, logs the read operation with timestamp, UID, and path
 
 ### e. Configuration
 
@@ -1065,38 +1065,4 @@ These variables are used by other parts of the filesystem:
 - `secret_basename` used in secret file identification (`is_secret`)  
 - `access_start` and `access_end` used in time-based access checks (`is_outside_time`)
 
-### Summary of Expected Behaviors
-
-To ensure clarity, here's a consolidated table of the expected behavior for specific scenarios:
-
-| Scenario                                                    | Expected Behavior                                                                           |
-| :---------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
-| Accessing a file outside allowed time (e.g., `secret` file) | Return `ENOENT` (No such file or directory)                                                 |
-| Reading a binary file                                       | Content must be outputted in **Base64 encoding**                                            |
-| Reading a text file                                         | Filtered words must be replaced with `"lawak"`                                              |
-| Listing files in any directory                              | All file extensions must be hidden                                                          |
-| Attempting to write, create, or rename any file/directory   | Return `EROFS` (Read-Only File System)                                                      |
-| Logging of file operations                                  | A new entry must be added to `/var/log/lawakfs.log` for each `read` and `access` operation. |
-
-### Example Behavior
-
-```bash
-$ ls /mnt/lawak/
-secret   image   readme
-
-$ cat /mnt/lawak/secret
-cat: /mnt/lawak/secret: No such file or directory
-# (This output is expected if accessed outside 08:00-18:00)
-
-$ cat /mnt/lawak/image
-<base64 string of image content>
-
-$ cat /mnt/lawak/readme
-"This is a lawak filesystem."
-# (Original "sisop" word was replaced with "lawak")
-
-$ sudo tail /var/log/lawakfs.log
-[2025-06-10 14:01:22] [1000] [READ] /readme
-[2025-06-10 14:01:24] [1000] [ACCESS] /secret
-```
 
