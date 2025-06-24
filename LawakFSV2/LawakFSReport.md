@@ -481,6 +481,7 @@ static void build_real_path(const char *path, char *fpath) {
    - User requests: `/document`
    - Function finds: `document.pdf`
    - Maps to: `/source_dir/document.pdf`
+   - Images show in (b).
 
 
 
@@ -790,6 +791,9 @@ free(raw);
 log_action("READ", path);
 return nread;
 ```
+
+**End Result**
+![img](https://github.com/Versa03/Module4/blob/main/LawakFSV2/c_filtering.png)
 
 Frees raw memory  
 Logs read operation to /var/log/lawakfs.log  
