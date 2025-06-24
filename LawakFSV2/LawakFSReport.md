@@ -1,3 +1,5 @@
+![img1](https://github.com/Versa03/Module4/blob/main/LawakFSV2/c_filtering.png)
+
 # LawakFS++ - A Cursed Filesystem with Censorship and Strict Access Policies
 
 ```c
@@ -323,6 +325,10 @@ Records filesystem activity to a log file. Step-by-step process:
 - Action type: [READ] or [ACCESS]
 - File path: `/documents/report.txt`
 
+  **End Result**
+Running first at the first terminal
+![img1](https://github.com/Versa03/Module4/blob/main/LawakFSV2/end_fuse_mount.png)
+
 ### a. Hidden File Extensions
 
 After using regular filesystems for days, Teja realized that file extensions always made it too easy for people to identify file types. "This is too predictable!" he thought. He wanted to create a more mysterious system where people would have to actually open files to discover their contents.
@@ -382,12 +388,12 @@ static int lawak_readdir(const char *path, void *buf,
    ```
    Creates a copy since we need to modify it.
 
-5. **🔑 KEY STEP: Remove extension**
+5. **Remove extension**
    ```c
    char *dot = strrchr(name, '.');  // Find last dot
    if (dot) *dot = 0;               // Cut string at dot
    ```
-   **This is where extensions get hidden!**
+   **Where the ext is hidden**
    - `document.pdf` → `document`
    - `image.jpg` → `image`
    - `script.sh` → `script`
@@ -454,9 +460,9 @@ static void build_real_path(const char *path, char *fpath) {
        return;
    }
    ```
-   Common case: assumes text files if no extension found.
+   Check if files exists text files if no extension found.
 
-3. **KEY STEP: Search for matching basename**
+3. **Search for matching basename**
    ```c
    const char *base = path + 1;  // Remove leading /
    while ((de = readdir(d))) {
@@ -471,7 +477,7 @@ static void build_real_path(const char *path, char *fpath) {
        }
    }
    ```
-   **This is the magic mappin!**
+   **End Ruselt:**
    - User requests: `/document`
    - Function finds: `document.pdf`
    - Maps to: `/source_dir/document.pdf`
@@ -542,8 +548,7 @@ Returns `1` if the file’s basename (before extension) matches `"secret"` (e.g.
 
 
 
-## `lawak_getattr()` — Deny stat on secret outside working hours
-
+## `lawak_getattr()`
 ```c
 static int lawak_getattr(const char *path, struct stat *stbuf,
                          struct fuse_file_info *fi) {
@@ -569,7 +574,7 @@ Denies `stat` calls on "secret" files outside the allowed time, returning `-ENOE
 
 ---
 
-## `lawak_access()` — Deny even checking existence
+## `lawak_access()` 
 
 ```c
 static int lawak_access(const char *path, int mask) {
@@ -596,7 +601,7 @@ Prevents checking the existence of secret files outside allowed hours, making co
    - Logs the action with `log_action("ACCESS", path);` and returns `0` on success or `-errno` on failure.
 
 
-## `lawak_open()` — Deny opening the file
+## `lawak_open()` 
 
 ```c
 static int lawak_open(const char *path, struct fuse_file_info *fi) {
@@ -624,7 +629,7 @@ Prevents opening secret files outside allowed hours, returning `-ENOENT`.
 
 
 
-## `lawak_read()` — Deny reading content
+## `lawak_read()` (Denying reading the content if cat)
 
 ```c
 static int lawak_read(const char *path, char *buf, size_t size,
@@ -646,6 +651,14 @@ Prevents reading the content of secret files outside allowed hours, returning `-
    - (Ellipsed code presumably handles reading the file content into `buf`.)
 3. **Log and return**
    - Logs the action with `log_action("READ", path);` and returns the number of bytes read (`nread`).
+  
+   **End Result**
+In fuse_sumber
+![img1](https://github.com/Versa03/Module4/blob/main/LawakFSV2/isi_fuse_sumber.png)
+If not in the range of time 
+![img](https://github.com/Versa03/Module4/blob/main/LawakFSV2/isi_fuse_mount_kalau_kelewatan_waktu.png)
+If in the range of time
+![img](https://github.com/Versa03/Module4/blob/main/LawakFSV2/isi_fuse_mount_kalau_dalam_waktu.png)
 
 
 ### c. Dynamic Content Filtering
